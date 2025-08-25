@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Work Timer — Warehouse & Graphics</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --card: #171a21;
+      --muted: #9aa4b2;
+      --text: #e7ecf3;
+      --accent: #5dd6a8;
+      --accent2: #7aa2ff;
+      --danger: #ff6b6b;
+      --line: #2a2f3a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      padding-bottom: 60px; /* room for iOS home indicator */
+    }
+    header {
+      position: sticky; top: 0; z-index: 10;
+      background: linear-gradient(to bottom, rgba(15,17,21,0.95), rgba(15,17,21,0.7));
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--line);
+    }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 20px; margin: 0; letter-spacing: 0.2px; }
+    .grid {
+      display: grid; gap: 12px;
+      grid-template-columns: 1fr; 
+    }
+    @media (min-width: 860px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    .section-title {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .big-timer {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      background: #0c0e12; border: 1px solid var(--line); border-radius: 12px; padding: 12px;
+    }
+    .big-time {
+      font-variant-numeric: tabular-nums;
+      font-size: 32px; font-weight: 700;
+    }
+    .status-pill {
+      padding: 6px 10px; border-radius: 999px; font-size: 12px; color: #0b1320;
+      background: var(--muted); color: #0c0e12; font-weight: 600;
+    }
+    .status-running { background: var(--accent2); color: #081225; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    button {
+      -webkit-tap-highlight-color: transparent;
+      appearance: none; border: 1px solid var(--line); border-radius: 12px;
+      background: #0c0e12; color: var(--text); padding: 12px 14px; font-size: 16px; font-weight: 600;
+    }
+    button:active { transform: translateY(1px); }
+    .btn-warehouse { border-color: #3a624b; }
+    .btn-graphics { border-color: #344d8c; }
+    .btn-stop { border-color: var(--danger); color: #ffdede; }
+    .btn-export { border-color: #3b3f4c; }
+    .pill {
+      display:inline-block; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line);
+      background: #0c0e12; color: var(--muted); font-size: 12px; margin-left: 8px;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 8px 6px;
+      font-size: 14px; text-align: left;
+    }
+    th { color: var(--muted); text-transform: uppercase; font-size: 12px; letter-spacing: 0.8px; }
+    tr:hover td { background: #12151b; }
+    .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .subtle { color: var(--muted); }
+    .right { text-align: right; }
+    .danger { color: var(--danger); }
+    .foot {
+      color: var(--muted); font-size: 12px; text-align: center; margin-top: 14px;
+    }
+    .small { font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Work Timer <span class="pill">Warehouse & Graphics</span></h1>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card">
+      <div class="section-title">Timer</div>
+      <div class="big-timer">
+        <div>
+          <div id="activeLabel" class="subtle">No active timer</div>
+          <div id="bigTime" class="big-time">00:00:00</div>
+        </div>
+        <div id="statusPill" class="status-pill">Idle</div>
+      </div>
+      <div class="btn-row" style="margin-top:12px;">
+        <button class="btn-warehouse" onclick="startTimer('Warehouse')">▶ Start Warehouse</button>
+        <button class="btn-graphics" onclick="startTimer('Graphics')">▶ Start Graphics</button>
+        <button class="btn-stop" onclick="stopTimer()">■ Stop</button>
+        <button class="btn-export" onclick="exportCSV()">Export Sessions CSV</button>
+        <button class="btn-export" onclick="exportDailyCSV()">Export Daily CSV</button>
+        <button class="btn-export" onclick="clearAllConfirm()">Reset All</button>
+      </div>
+      <div class="foot">Graphics automatically adds +15 min per hour to billable (keeps real time separately).</div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <div class="section-title">Sessions</div>
+        <table id="logTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Start</th>
+              <th>End</th>
+              <th class="right">Actual (h)</th>
+              <th class="right">Extra (h)</th>
+              <th class="right">Billable (h)</th>
+            </tr>
+          </thead>
+          <tbody id="logBody"></tbody>
+        </table>
+        <div class="foot small">Tip: Add to Home Screen on iPhone for an app-like feel.</div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Daily Totals</div>
+        <table id="dailyTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th class="right">Warehouse (h)</th>
+              <th class="right">Graphics (h)</th>
+              <th class="right">Graphics Extra (h)</th>
+              <th class="right">Total (rounded to 0.25h)</th>
+            </tr>
+          </thead>
+          <tbody id="dailyBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ======= Utilities =======
+    const $ = sel => document.querySelector(sel);
+    const LS_KEY = 'worklogs_v2'; // version bump for new format
+    let current = null; // { type, startISO }
+    let tickHandle = null;
+
+    function nowISO(){ return new Date().toISOString(); }
+    function fmtClock(ms) {
+      ms = Math.max(0, ms|0);
+      const s = Math.floor(ms/1000);
+      const hh = String(Math.floor(s/3600)).padStart(2,'0');
+      const mm = String(Math.floor((s%3600)/60)).padStart(2,'0');
+      const ss = String(s%60).padStart(2,'0');
+      return `${hh}:${mm}:${ss}`;
+    }
+    function toHours(ms){ return ms / 1000 / 60 / 60; }
+    function roundQuarter(hours){ return Math.round(hours * 4)/4; }
+    function ymd(date) {
+      const d = new Date(date);
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const da = String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${da}`;
+    }
+    function fmtTime(t){ return new Date(t).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
+    function fmtDate(t){ return new Date(t).toLocaleDateString(); }
+    function toFixed2(n){ return (Math.round(n*100)/100).toFixed(2); }
+
+    function loadLogs(){
+      try {
+        return JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+      } catch(e) {
+        return [];
+      }
+    }
+    function saveLogs(arr){
+      localStorage.setItem(LS_KEY, JSON.stringify(arr));
+    }
+
+    // ======= Timer Controls =======
+    function updateStatusUI(){
+      if (current){
+        $('#activeLabel').textContent = `${current.type} running — started ${fmtTime(current.startISO)}`;
+        $('#statusPill').textContent = 'Running';
+        $('#statusPill').classList.add('status-running');
+      } else {
+        $('#activeLabel').textContent = 'No active timer';
+        $('#statusPill').textContent = 'Idle';
+        $('#statusPill').classList.remove('status-running');
+        $('#bigTime').textContent = '00:00:00';
+      }
+    }
+
+    function tick(){
+      if (!current) return;
+      const ms = Date.now() - new Date(current.startISO).getTime();
+      $('#bigTime').textContent = fmtClock(ms);
+    }
+
+    function startTimer(type){
+      if (current){
+        alert('Stop the current timer first.');
+        return;
+      }
+      current = { type, startISO: nowISO() };
+      updateStatusUI();
+      tick();
+      if (tickHandle) clearInterval(tickHandle);
+      tickHandle = setInterval(tick, 1000);
+      // haptic-ish feedback on iOS (where supported)
+      try { window.navigator.vibrate && window.navigator.vibrate(10); } catch(e){}
+    }
+
+    function stopTimer(){
+      if (!current){
+        alert('No active timer.');
+        return;
+      }
+      if (tickHandle) { clearInterval(tickHandle); tickHandle = null; }
+
+      const endISO = nowISO();
+      const ms = new Date(endISO) - new Date(current.startISO);
+      const actualH = toHours(ms);
+      // For Graphics: +15 min per hour proportionally => 1.25x
+      const billableH = current.type === 'Graphics' ? (actualH * 1.25) : actualH;
+      const extraH = Math.max(0, billableH - actualH);
+
+      const entry = {
+        id: cryptoRandomId(),
+        type: current.type,
+        startISO: current.startISO,
+        endISO,
+        dateKey: ymd(current.startISO),
+        actualH,
+        extraH,
+        billableH
+      };
+
+      const logs = loadLogs();
+      logs.push(entry);
+      saveLogs(logs);
+
+      current = null;
+      updateStatusUI();
+      renderAll();
+      // soft feedback
+      try { window.navigator.vibrate && window.navigator.vibrate([10,30,10]); } catch(e){}
+    }
+
+    function cryptoRandomId(){
+      if (window.crypto?.randomUUID) return crypto.randomUUID();
+      return 'id-' + Math.random().toString(36).slice(2);
+    }
+
+    // ======= Rendering =======
+    function renderSessions(){
+      const body = $('#logBody');
+      body.innerHTML = '';
+      const logs = loadLogs().slice().sort((a,b)=> new Date(b.startISO)-new Date(a.startISO)); // newest first
+      for (const e of logs){
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${fmtDate(e.startISO)}</td>
+          <td>${e.type}</td>
+          <td class="mono">${fmtTime(e.startISO)}</td>
+          <td class="mono">${fmtTime(e.endISO)}</td>
+          <td class="right mono">${toFixed2(e.actualH)}</td>
+          <td class="right mono">${toFixed2(e.extraH)}</td>
+          <td class="right mono">${toFixed2(e.billableH)}</td>
+        `;
+        body.appendChild(tr);
+      }
+    }
+
+    function renderDaily(){
+      const body = $('#dailyBody');
+      body.innerHTML = '';
+      const logs = loadLogs();
+      const days = {};
+      for (const e of logs){
+        const d = e.dateKey;
+        if (!days[d]) days[d] = { wh:0, gfx:0, gfxExtra:0 };
+        if (e.type === 'Warehouse') { days[d].wh += e.actualH; }
+        else if (e.type === 'Graphics') { days[d].gfx += e.actualH; days[d].gfxExtra += e.extraH; }
+      }
+      const rows = Object.entries(days).sort(([a],[b])=> a<b ? 1 : -1);
+      for (const [dateKey, sums] of rows){
+        const total = sums.wh + sums.gfx + sums.gfxExtra; // warehouse actual + graphics actual + extra
+        const rounded = roundQuarter(total);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${new Date(dateKey+'T00:00:00').toLocaleDateString()}</td>
+          <td class="right mono">${toFixed2(sums.wh)}</td>
+          <td class="right mono">${toFixed2(sums.gfx)}</td>
+          <td class="right mono">${toFixed2(sums.gfxExtra)}</td>
+          <td class="right mono"><strong>${toFixed2(rounded)}</strong></td>
+        `;
+        body.appendChild(tr);
+      }
+    }
+
+    function renderAll(){
+      renderSessions();
+      renderDaily();
+    }
+
+    // ======= Export =======
+    function exportCSV(){
+      const logs = loadLogs();
+      const header = ['Date','Type','Start','End','Actual (h)','Graphics Extra (h)','Billable (h)'];
+      const rows = logs.map(e => [
+        fmtDate(e.startISO),
+        e.type,
+        fmtTime(e.startISO),
+        fmtTime(e.endISO),
+        toFixed2(e.actualH),
+        toFixed2(e.extraH),
+        toFixed2(e.billableH),
+      ]);
+      downloadCSV([header, ...rows], 'sessions.csv');
+    }
+
+    function exportDailyCSV(){
+      const logs = loadLogs();
+      const days = {};
+      for (const e of logs){
+        const d = e.dateKey;
+        if (!days[d]) days[d] = { wh:0, gfx:0, gfxExtra:0 };
+        if (e.type === 'Warehouse') days[d].wh += e.actualH;
+        else { days[d].gfx += e.actualH; days[d].gfxExtra += e.extraH; }
+      }
+      const header = ['Date','Warehouse (h)','Graphics (h)','Graphics Extra (h)','Total Rounded (h)'];
+      const rows = Object.keys(days).sort((a,b)=> a<b ? 1 : -1).map(d => {
+        const s = days[d];
+        const total = s.wh + s.gfx + s.gfxExtra;
+        const rounded = roundQuarter(total);
+        const dateStr = new Date(d+'T00:00:00').toLocaleDateString();
+        return [dateStr, toFixed2(s.wh), toFixed2(s.gfx), toFixed2(s.gfxExtra), toFixed2(rounded)];
+      });
+      downloadCSV([header, ...rows], 'daily_totals.csv');
+    }
+
+    function downloadCSV(rows, filename){
+      const esc = v => (''+v).replace(/"/g,'""');
+      const csv = rows.map(r => r.map(esc).map(v => `"${v}"`).join(',')).join('\n');
+      const blob = new Blob([csv], {type: 'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      setTimeout(()=>URL.revokeObjectURL(url), 1500);
+    }
+
+    // ======= Danger Zone =======
+    function clearAllConfirm(){
+      if (!confirm('This will erase ALL saved sessions on this device. Continue?')) return;
+      localStorage.removeItem(LS_KEY);
+      renderAll();
+    }
+
+    // ======= Init =======
+    document.addEventListener('visibilitychange', ()=> { if (current && document.visibilityState==='visible') tick(); });
+    renderAll();
+    updateStatusUI();
+  </script>
+</body>
+</html>
